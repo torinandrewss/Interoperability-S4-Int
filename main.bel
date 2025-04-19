@@ -41,6 +41,7 @@ LF nd : o → type =
   | ⊤I  : nd ⊤
   | ⊥E  : nd ⊥ → nd C;
 
+
 % ====================================
 % Modal Judgments
 % ====================================
@@ -62,7 +63,9 @@ LF I : ml → type =                   % Intuitionistic S4
 LF Int : ml → type =                 % Intuitionistic Logic
   | axInt  : Int A
   | →IInt  : (Int A → Int B) → Int (A imp B)
-  | →EInt  : Int (A imp B) → Int A → Int B;
+  | →EInt  : Int (A imp B) → Int A → Int B
+
+;
 
 % ====================================
 % Contexts & Context Relations
@@ -71,23 +74,11 @@ LF Int : ml → type =                 % Intuitionistic Logic
 schema ctx  = block x:ml;            % Context for modal logics
 schema ndctx = block x:o;           % Context for ND logic
 
-%inductive ctxRel : ctx → ndctx → ctype =
-%   | ctxRelNil  : ctxRel [] []
-%   | ctxRelCons : {Γ : ctx}{Δ : ndctx}{A : ml}{A' : o}{x : name}
-%                  ctxRel Γ Δ →
-%                  ctxRel (Γ, x:A) (Δ, x:A');
-
-
-
-
-
-
-
-
-
-
-
-
+%inductive Rel : {Γ : ctx}{Δ : ndctx} ctype =
+%  | empty : Rel [] []
+%  | cons  : {Γ : ctx}{Δ : ndctx}{A : ml}{x : name}
+%            Rel Γ Δ →
+%            Rel (Γ, x:A) (Δ, x:transFml A);
 
 % ====================================
 % Translation Utilities and Functions
@@ -95,26 +86,41 @@ schema ndctx = block x:o;           % Context for ND logic
 
 % --- Formula Translation ---
 % Translate modal formulas (ml) into intuitionistic formulas (o)
-% For example: box A ↦ ⊤ ⊃ transFml A
 
 rec transFml : {g:ctx} [g ⊢ ml] → [g ⊢ o] =
-
-
-% --- Translation: S4 to I ---
-% Translate derivations from Classical S4 to Intuitionistic S4
-
-rec S4_to_I : {g:ctx} S4[g] A → I[g] A = ?
-
-
+fn t ⇒
+case t of
+  | [ Γ ⊢ A imp B ] ⇒
+	let [Γ ⊢ A' ] = transFml [Γ ⊢ A] in
+	let [Γ ⊢ B' ] = transFml [Γ ⊢ B] in
+	[ Γ ⊢ A' ⊃ B' ]
+  | [ Γ ⊢ box A ] ⇒
+	let [Γ ⊢ A'] = transFml [Γ ⊢ A] in
+	[Γ ⊢ (A' ⊃ ⊥) ⊃ ⊥]
 ;
 
 
-% --- Translation: I to Int ---
+schema mctx = I A ;        % (later: or S4 A)
+
+inductive Rel : {Γ:mctx}{Δ:ndctx} ctype =
+| empty : Rel [ ] [ ]
+| cons  : Rel [Γ] [Δ] →
+          Rel [ Γ , a : I A[] ] [ Δ , a : nd (transFml A[]) ] ;
+
+
+
+% --- Translation: S4 to I ---
+% Translate derivations from Classical S4 to IS4
+
+rec S4_to_I : {g:ctx} [g ⊢ S4 A] → [g ⊢ I A] = ?
+						   
+;
+
+
+% --- Translation: IS4 to Int ---
 % Translate derivations from IS4 to pure intuitionistic logic
 
-rec I_to_Int : {g:ctx} I[g] A → Int[g] A = ?
-
-
+rec I_to_Int : {g:ctx} [g ⊢ I A] → [g ⊢ Int A] = ?
 ;
 
 
