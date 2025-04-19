@@ -74,12 +74,6 @@ LF Int : ml → type =                 % Intuitionistic Logic
 schema ctx  = block x:ml;            % Context for modal logics
 schema ndctx = block x:o;           % Context for ND logic
 
-%inductive Rel : {Γ : ctx}{Δ : ndctx} ctype =
-%  | empty : Rel [] []
-%  | cons  : {Γ : ctx}{Δ : ndctx}{A : ml}{x : name}
-%            Rel Γ Δ →
-%            Rel (Γ, x:A) (Δ, x:transFml A);
-
 % ====================================
 % Translation Utilities and Functions
 % ====================================
@@ -100,13 +94,33 @@ case t of
 ;
 
 
-schema mctx = I A ;        % (later: or S4 A)
+schema mctx = I A ;
 
 inductive Rel : {Γ:mctx}{Δ:ndctx} ctype =
 | empty : Rel [ ] [ ]
 | cons  : Rel [Γ] [Δ] →
-          Rel [ Γ , a : I A[] ] [ Δ , a : nd (transFml A[]) ] ;
+          Rel [ Γ , a : I A[] ] [ Δ , a : nd A[] ] ;
 
+rec lookup
+  : Rel [Γ] [Δ] →
+    { #p : #[Γ ⊢ I (A[])] } [ Δ ⊢ nd (transFml [Γ ⊢ A[]]) ]
+= fn r ⇒ mlam #p ⇒
+  case r of
+  | empty ⇒ impossible [ ⊢ #p ]
+  | cons r' ⇒
+      case [ _ ⊢ #p ] of
+	| [ Γ', a:I A[] ⊢ #p'[..] ] ⇒
+	      let [Γ' ⊢ A'] = transFml [Γ' ⊢ A[]] in
+
+	      let [Δ' ⊢ M] = lookup r' [Γ' ⊢ #p'] in
+
+	      [Δ', a : nd A' ⊢ M[..] ]
+	| [ Γ', a:I A[] ⊢ a ] ⇒
+	      let [Γ' ⊢ A'] = transFml [Γ' ⊢ A[]] in
+	      [_ , a : nd A' ⊢ a]
+	      
+       
+;
 
 
 % --- Translation: S4 to I ---
