@@ -53,26 +53,27 @@ LF S4 : ml → type =                  % Classical S4
   | □IS4  : S4 A → S4 (box A)
   | □ES4  : S4 (box A) → S4 A;
 
-LF I : ml → type =                   % Intuitionistic S4
+LF I : ml → type =                   % IS4
   | axI  : I A
   | →II  : (I A → I B) → I (A imp B)
   | →EI  : I (A imp B) → I A → I B
   | □II  : I A → I (box A)
-  | □EI  : I (box A) → I A;
+  | □EI  : I (box A) → I A
+;
 
-LF Int : ml → type =                 % Intuitionistic Logic
+LF Int : o → type =                 % Intuitionistic Logic
   | axInt  : Int A
-  | →IInt  : (Int A → Int B) → Int (A imp B)
-  | →EInt  : Int (A imp B) → Int A → Int B
-
+  | →IInt  : (Int A → Int B) → Int (A ⊃ B)
+  | →EInt  : Int (A ⊃ B) → Int A → Int B
 ;
 
 % ====================================
 % Contexts & Context Relations
 % ====================================
 
-schema ctx  = block x:ml;            % Context for modal logics
-schema ndctx = block x:o;           % Context for ND logic
+schema ctx  = x:ml;           % Context for modal logics
+schema intctx = Int A;              % Context for Intuitionistic Logics 
+schema ndctx =  x:o;           % Context for ND logic
 
 % ====================================
 % Translation Utilities and Functions
@@ -85,59 +86,44 @@ schema ndctx = block x:o;           % Context for ND logic
 
 schema mctx = I A ;
 
-inductive Rel : {Γ:mctx}{Δ:ndctx} ctype =
+
+inductive Rel : {Γ:mctx}{Δ:intctx} ctype =
 | empty : Rel [ ] [ ]
 | cons  : Rel [Γ] [Δ] →
-          Rel [ Γ , a : I A[] ] [ Δ , a : nd A[] ] ;
+          Rel [ Γ , a : I A[] ]
+	      [ Δ , a : Int A[] ] ;
 
-rec lookup
-  : Rel [Γ] [Δ] →
-    { #p : #[Γ ⊢ I (A[])] } [ Δ ⊢ nd (transFml [Γ ⊢ A[]]) ]
+
+rec lookup : Rel [Γ] [Δ]
+	     → {#p : #[Γ ⊢ I (A[])]} [Δ ⊢ Int A[]]
 = fn r ⇒ mlam #p ⇒
-  case r of
-  | empty ⇒ impossible [ ⊢ #p ]
+case r of
+  | empty ⇒ impossible [ ⊢ #p]
   | cons r' ⇒
-      case [ _ ⊢ #p ] of
-	| [ Γ', a:I A[] ⊢ #p'[..] ] ⇒
-	      let [Γ' ⊢ A'] = transFml [Γ' ⊢ A[]] in
-
-	      let [Δ' ⊢ M] = lookup r' [Γ' ⊢ #p'] in
-
-	      [Δ', a : nd A' ⊢ M[..] ]
-	| [ Γ', a:I A[] ⊢ a ] ⇒
-	      let [Γ' ⊢ A'] = transFml [Γ' ⊢ A[]] in
-	      [_ , a : nd A' ⊢ a]
-	      
-       
+  case [_ ⊢ #p] of
+    | [ Γ', a: I A[] ⊢ #p'[..]] ⇒
+	  let [Δ' ⊢ M] = lookup r' [Γ' ⊢ #p'] in
+	  [Δ', a:Int A[] ⊢ M[..]]
+    | [ Γ' , a: I A[] ⊢ a] ⇒
+	  [ _ , a:Int A[] ⊢ a]
 ;
-
-
-% --- Translation: S4 to I ---
-% Translate derivations from Classical S4 to IS4
-
-rec S4_to_I : {g:ctx} [g ⊢ S4 A] → [g ⊢ I A] = ?
-						   
-;
-
 
 % --- Translation: IS4 to Int ---
 % Translate derivations from IS4 to intuitionistic logic
 
-rec transFml : {g:ctx} [g ⊢ ml] → [g ⊢ o] =
-fn t ⇒
-case t of
-  | [ Γ ⊢ A imp B ] ⇒
-	let [Γ ⊢ A' ] = transFml [Γ ⊢ A] in
-	let [Γ ⊢ B' ] = transFml [Γ ⊢ B] in
-	[ Γ ⊢ A' ⊃ B' ]
-  | [ Γ ⊢ box A ] ⇒
-	let [Γ ⊢ A'] = transFml [Γ ⊢ A] in
-	[Γ ⊢ (A' ⊃ ⊥) ⊃ ⊥]
+
+rec transFml : {Γ:ctx} [Γ ⊢ ml] → [Γ ⊢ o] =
+  mlam Γ ⇒ fn t ⇒
+    case t of
+    | [ _ ⊢  A imp B ] ⇒
+        let [ _ ⊢ A' ] = transFml [ _ ⊢ A ] in
+        let [ _ ⊢ B' ] = transFml [ _ ⊢ B ] in
+        [ _ ⊢ A' ⊃ B' ]
+    | [ _ ⊢ box A ] ⇒
+        let [ _ ⊢ A' ] = transFml [ _ ⊢ A ] in
+        [ _ ⊢ ( A' ⊃  ⊥) ⊃ ⊥ ]
 ;
 
-% NEED a new REL
-
-% NEED a new lookup
 
 
 rec I_to_Int : {g:ctx} [g ⊢ I A] → [g ⊢ Int A] = ?
