@@ -1,0 +1,122 @@
+% Final Project - COMP 527
+% Mechanizing Logical Interoperability Between S4 and Intuitionistic Logic
+% Authors: Mirek Bourdeau & Torin Andrews (Team Torek)
+
+% ====================================
+% Logical Formulas (Intuitionistic + Modal)
+% ====================================
+
+LF o : type =                        % Intuitionistic formulas
+  | ⊤ : o
+  | ⊥ : o
+  | ⊃ : o → o → o
+  | ∧ : o → o → o
+  | ∨ : o → o → o
+  | ¬ : o → o;
+
+--prefix ¬ 10.
+--infix ∧ 5 right.
+--infix ∨ 4 right.
+--infix ⊃ 3 right.
+
+LF ml : type =                       % Modal formulas (S4, IS4, Int)
+  | imp : ml → ml → ml
+  | box : ml → ml;
+
+--infix imp 3 right.
+
+% ====================================
+% Natural Deduction Judgment (ND)
+% ====================================
+
+LF nd : o → type =
+  | ⊃I  : (nd A → nd B) → nd (A ⊃ B)
+  | ⊃E  : nd (A ⊃ B) → nd A → nd B
+  | ∧I  : nd A → nd B → nd (A ∧ B)
+  | ∧El : nd (A ∧ B) → nd A
+  | ∧Er : nd (A ∧ B) → nd B
+  | ∨Il : nd A → nd (A ∨ B)
+  | ∨Ir : nd B → nd (A ∨ B)
+  | ∨E  : nd (A ∨ B) → (nd A → nd C) → (nd B → nd C) → nd C
+  | ⊤I  : nd ⊤
+  | ⊥E  : nd ⊥ → nd C;
+
+
+% ====================================
+% Modal Judgments
+% ====================================
+
+% Need to encode the judgmental distinction that Pfenning and Davies
+% outline  - necessity in IS4 corresponds to validity
+
+LF S4 : ml → type =                  % Classical S4
+  | axS4  : S4 A
+  | →IS4  : (S4 A → S4 B) → S4 (A imp B)
+  | →ES4  : S4 (A imp B) → S4 A → S4 B
+  | □IS4  : S4 A → S4 (box A)
+  | □ES4  : S4 (box A) → S4 A;
+
+LF Ivalid : ml → type =
+  | valI : I A → Ivalid A;
+
+LF I : ml → type =                   % IS4
+  | axI  : I A
+  | →II  : (I A → I B) → I (A imp B)
+  | →EI  : I (A imp B) → I A → I B
+  | □II  : I A → I (box A)
+  | □EI  : I (box A) → I A;
+;
+
+% ====================================
+% Contexts & Context Relations
+% ====================================
+
+schema ctx = S4 A;
+
+schema ictx = I A;
+% ====================================
+% Translation Utilities and Functions
+% ====================================
+
+inductive Rel : {Γ:ctx} {Γ' : ictx} ctype =
+  | empty : Rel [] []
+  | cons : Rel [Γ] [Γ'] →
+	   Rel [Γ, a: S4 A[]] [Γ', a: I A[]];
+
+rec lookup : Rel [Γ] [Γ'] → { #p:#[Γ ⊢ S4 (A[])]} [Γ' ⊢ I (A[])] =
+fn r ⇒ mlam #p ⇒ case r of
+  | empty ⇒ impossible [ ⊢ #p]
+  | cons r' ⇒
+	(case [_ ⊢ #p] of
+	  | [Γ0, a : S4 A[] ⊢ #p'[..]] ⇒
+		let [Γ0' ⊢ M] = lookup r' [Γ0 ⊢ #p'] in
+		[Γ0', a: I A[] ⊢ M[..]]
+	  | [Γ0, a: S4 A[] ⊢ a] ⇒ [_, a: I A[] ⊢ a]
+
+	)
+
+;
+% --- Translation: S4 to IS4 ---
+
+
+rec trans : Rel [Γ] [Γ'] → [Γ ⊢ S4 A[]] → [Γ' ⊢ I A[]] =
+fn r ⇒ fn d ⇒ case d of
+  | [Γ ⊢ #p] ⇒ lookup r [Γ ⊢ #p]
+  | [Γ ⊢ →IS4 \a.D ] ⇒
+	let [Γ', a: I A[] ⊢ E] = trans (cons r) [Γ, a:S4 _ ⊢ D] in
+	[Γ' ⊢ →II \a.E ]
+  | [Γ ⊢ →ES4 D1 D2 ] ⇒
+	let [Γ' ⊢ E1] = trans r [Γ ⊢ D1] in
+	let [Γ' ⊢ E2] = trans r [Γ ⊢ D2] in
+	[Γ' ⊢ →EI E1 E2]
+  | [Γ ⊢ □IS4 D ] ⇒
+	let [Γ' ⊢ D'] = trans r [Γ ⊢ D] in
+	[Γ' ⊢ □II D']
+  | [Γ ⊢ □ES4 D] ⇒
+	let [Γ' ⊢ D'] = trans r [Γ ⊢ D] in
+	[Γ' ⊢ □EI D']
+;
+
+
+
+
